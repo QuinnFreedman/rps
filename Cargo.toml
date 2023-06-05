@@ -1,0 +1,15 @@
+[package]
+name = "ps-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+git2 = { version = "0.17.2", default-features = false }
+terminal_size = "0.2.6"
+unicode-segmentation = "1.10.1"
+
+[[bin]]
+name = "ps-rs"
+test = false
+bench = false
+path = "src/main.rs"
