@@ -16,14 +16,26 @@ enum GitStatus {
     Changes(FileChanges),
 }
 
+enum GitState {
+    Clean,
+    Bisect,
+    Rebase,
+    Merge,
+    Cherrypick,
+}
+
 pub struct GitSegment {
     status: GitStatus,
+    mode: GitState,
     status_str_len: usize,
     branch_name: String,
     branch_name_len: usize,
 }
 
 const MIN_BRANCH_TEXT: usize = 4;
+const UNSTAGED_CHANGES_SYMBOL: char = '\u{25CF}';
+const STAGED_CHANGES_SYMBOL: char = '\u{271A}';
+const CONFLICT_SYMBOL: char = '\u{26A0}';
 
 fn get_branch_name(repo: &Repository) -> Option<String> {
     if repo.head_detached().ok().unwrap_or(false) {
@@ -40,12 +52,13 @@ impl GitSegment {
         let repo = Repository::open(context.path.as_ref()?).ok()?;
         let statuses = repo.statuses(None).ok()?;
         let status = get_repo_status(&statuses);
-        let status_str_len = calculate_status_size_len(&status);
+        let mode = get_repo_mode(&repo);
+        let status_str_len = calculate_status_size_len(&status, &mode);
         let branch_name = get_branch_name(&repo).unwrap_or(String::from("<NO HEAD>"));
         let branch_name_len = branch_name.graphemes(true).count();
-        // repo.state() // TODO handle state
         Some(GitSegment {
             status,
+            mode,
             status_str_len,
             branch_name,
             branch_name_len,
@@ -77,21 +90,29 @@ impl GitSegment {
             if staged || unstaged || conflicted {
                 string_builder.push(' ');
             }
-            if staged {
-                string_builder.push('+');
-            }
             if unstaged {
-                string_builder.push('*');
+                string_builder.push(UNSTAGED_CHANGES_SYMBOL);
+            }
+            if staged {
+                string_builder.push(STAGED_CHANGES_SYMBOL);
             }
             if conflicted {
-                string_builder.push('!');
+                string_builder.push(CONFLICT_SYMBOL);
             }
+        }
+
+        match self.mode {
+            GitState::Clean => {}
+            GitState::Bisect => string_builder.push_str(" <B>"),
+            GitState::Merge => string_builder.push_str(" >M<"),
+            GitState::Rebase => string_builder.push_str(" >R>"),
+            GitState::Cherrypick => string_builder.push_str(" >C>"),
         }
     }
 }
 
-fn calculate_status_size_len(status: &GitStatus) -> usize {
-    match status {
+fn calculate_status_size_len(status: &GitStatus, mode: &GitState) -> usize {
+    let status_symbol_len = match status {
         GitStatus::Clean => 0,
         GitStatus::UntrackedFiles => 0,
         GitStatus::Changes(FileChanges {
@@ -99,6 +120,36 @@ fn calculate_status_size_len(status: &GitStatus) -> usize {
             unstaged,
             conflicted,
         }) => *staged as usize + *unstaged as usize + *conflicted as usize,
+    };
+    let mode_symol_len = match mode {
+        GitState::Clean => 0,
+        GitState::Bisect => 3,
+        GitState::Rebase => 3,
+        GitState::Merge => 3,
+        GitState::Cherrypick => 3,
+    };
+    match (status_symbol_len, mode_symol_len) {
+        (0, 0) => 0,
+        (x, 0) => x,
+        (0, y) => y,
+        (x, y) => x + y + 1,
+    }
+}
+
+fn get_repo_mode(repo: &Repository) -> GitState {
+    match repo.state() {
+        git2::RepositoryState::Clean => GitState::Clean,
+        git2::RepositoryState::Merge => GitState::Merge,
+        git2::RepositoryState::Revert => GitState::Clean,
+        git2::RepositoryState::RevertSequence => GitState::Clean,
+        git2::RepositoryState::CherryPick => GitState::Cherrypick,
+        git2::RepositoryState::CherryPickSequence => GitState::Cherrypick,
+        git2::RepositoryState::Bisect => GitState::Bisect,
+        git2::RepositoryState::Rebase => GitState::Rebase,
+        git2::RepositoryState::RebaseInteractive => GitState::Rebase,
+        git2::RepositoryState::RebaseMerge => GitState::Rebase,
+        git2::RepositoryState::ApplyMailbox => GitState::Clean,
+        git2::RepositoryState::ApplyMailboxOrRebase => GitState::Clean,
     }
 }
 
@@ -234,7 +285,10 @@ impl PromptSegment for GitSegment {
 }
 #[cfg(test)]
 mod tests {
-    use crate::segments::{PromptSegment, ShrinkPriority};
+    use crate::{
+        git::GitState,
+        segments::{PromptSegment, ShrinkPriority},
+    };
 
     use super::{calculate_status_size_len, FileChanges, GitSegment, GitStatus};
 
@@ -245,9 +299,11 @@ mod tests {
             unstaged: true,
             conflicted: false,
         });
-        let status_str_len = calculate_status_size_len(&status);
+        let mode = GitState::Clean;
+        let status_str_len = calculate_status_size_len(&status, &mode);
         let segment = GitSegment {
             status,
+            mode,
             status_str_len,
             branch_name: "example123".to_string(),
             branch_name_len: 10,
@@ -259,9 +315,9 @@ mod tests {
         );
         assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);
 
-        assert_eq!(segment.render_at_size(40).text, " \u{e0a0} example123 +* ");
-        assert_eq!(segment.render_at_size(14).text, " \u{e0a0} exam... +* ");
-        assert_eq!(segment.render_at_size(13).text, " \u{e0a0} +* ");
+        assert_eq!(segment.render_at_size(40).text, " \u{e0a0} example123 ●✚ ");
+        assert_eq!(segment.render_at_size(14).text, " \u{e0a0} exam... ●✚ ");
+        assert_eq!(segment.render_at_size(13).text, " \u{e0a0} ●✚ ");
         assert_eq!(segment.render_at_size(5).text, " \u{e0a0} ");
         assert_eq!(segment.render_at_size(2).text, "");
     }
@@ -273,9 +329,11 @@ mod tests {
             unstaged: false,
             conflicted: false,
         });
-        let status_str_len = calculate_status_size_len(&status);
+        let mode = GitState::Clean;
+        let status_str_len = calculate_status_size_len(&status, &mode);
         let segment = GitSegment {
             status,
+            mode,
             status_str_len,
             branch_name: "example123".to_string(),
             branch_name_len: 10,
@@ -290,6 +348,72 @@ mod tests {
         assert_eq!(segment.render_at_size(40).text, " \u{e0a0} example123 ");
         assert_eq!(segment.render_at_size(13).text, " \u{e0a0} exampl... ");
         assert_eq!(segment.render_at_size(10).text, " \u{e0a0} ");
+        assert_eq!(segment.render_at_size(2).text, "");
+    }
+
+    #[test]
+    fn format_with_status_and_mode() {
+        let status = GitStatus::Changes(FileChanges {
+            staged: true,
+            unstaged: true,
+            conflicted: false,
+        });
+        let mode = GitState::Rebase;
+        let status_str_len = calculate_status_size_len(&status, &mode);
+        let segment = GitSegment {
+            status,
+            mode,
+            status_str_len,
+            branch_name: "example123".to_string(),
+            branch_name_len: 10,
+        };
+        assert_eq!(segment.get_base_width(ShrinkPriority::Unconstrained), 21);
+        assert_eq!(
+            segment.get_base_width(ShrinkPriority::ShrinkConfortable),
+            18
+        );
+        assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);
+
+        assert_eq!(
+            segment.render_at_size(40).text,
+            " \u{e0a0} example123 ●✚ >R> "
+        );
+        assert_eq!(
+            segment.render_at_size(19).text,
+            " \u{e0a0} examp... ●✚ >R> "
+        );
+        assert_eq!(segment.render_at_size(13).text, " \u{e0a0} ●✚ >R> ");
+        assert_eq!(segment.render_at_size(5).text, " \u{e0a0} ");
+        assert_eq!(segment.render_at_size(2).text, "");
+    }
+
+    #[test]
+    fn format_no_status_with_mode() {
+        let status = GitStatus::Changes(FileChanges {
+            staged: false,
+            unstaged: false,
+            conflicted: false,
+        });
+        let mode = GitState::Merge;
+        let status_str_len = calculate_status_size_len(&status, &mode);
+        let segment = GitSegment {
+            status,
+            mode,
+            status_str_len,
+            branch_name: "example123".to_string(),
+            branch_name_len: 10,
+        };
+        assert_eq!(segment.get_base_width(ShrinkPriority::Unconstrained), 18);
+        assert_eq!(
+            segment.get_base_width(ShrinkPriority::ShrinkConfortable),
+            15
+        );
+        assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);
+
+        assert_eq!(segment.render_at_size(40).text, " \u{e0a0} example123 >M< ");
+        assert_eq!(segment.render_at_size(17).text, " \u{e0a0} exampl... >M< ");
+        assert_eq!(segment.render_at_size(10).text, " \u{e0a0} >M< ");
+        assert_eq!(segment.render_at_size(4).text, " \u{e0a0} ");
         assert_eq!(segment.render_at_size(2).text, "");
     }
 }
