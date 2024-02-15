@@ -1,17 +1,23 @@
+#![feature(iter_intersperse)]
+
 mod colors;
 mod git;
+mod init;
 mod path;
 mod segments;
+mod status;
 
 use std::{
     cmp::min,
     io::{self, Write},
 };
 
+use clap::{Parser, ValueEnum};
 use git::GitSegment;
+use init::echo_init_script;
 use path::PathSegment;
 use segments::*;
-use terminal_size::{self, Width};
+use status::StatusSegment;
 
 const SEGMENT_SEPARATOR: char = '\u{E0B0}';
 const MIN_WHITESPACE: usize = 40;
@@ -29,6 +35,12 @@ struct SegmentLayout<'a> {
 }
 
 type Layout<'a> = Vec<SegmentLayout<'a>>;
+
+impl std::fmt::Debug for SegmentLayout<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(format!("{}", self.current_size).as_str())
+    }
+}
 
 fn get_size(layout: &Layout) -> usize {
     layout.iter().map(|x| x.current_size + 1).sum::<usize>() + 1
@@ -61,21 +73,13 @@ fn layout_segments(
         ShrinkPriority::ShrinkConfortable,
         ShrinkPriority::ShrinkBeyondMin,
     ] {
-        println!("shrink_priority: {:#?}", shrink_priority);
         while prompt_width > term_width {
-            println!(
-                "prompt_width ({}) > term_width ({})",
-                prompt_width, term_width
-            );
             let amount_to_shrink = prompt_width - term_width;
             let to_shrink = layout
                 .iter_mut()
                 .max_by_key(|segment| amount_can_shrink(&segment, shrink_priority))
                 .unwrap();
-            println!("  to_shrink.current_size: {}", to_shrink.current_size,);
-            println!("  amount_to_shrink: {}", amount_to_shrink,);
             let amount_can_shrink = amount_can_shrink(&to_shrink, shrink_priority);
-            println!("  amout_can_shrink: {}", amount_can_shrink);
             if amount_can_shrink == 0 {
                 break;
             }
@@ -85,8 +89,6 @@ fn layout_segments(
             let new_actual_size = to_shrink
                 .segment
                 .get_actual_width_when_under(new_requested_size);
-            println!("  new_requested_size: {}", new_requested_size,);
-            println!("  new_actual_size: {}", new_actual_size,);
             to_shrink.current_size = new_actual_size;
             prompt_width = get_size(&layout);
         }
@@ -100,15 +102,70 @@ fn layout_segments(
 }
 
 fn set_stdout_color(fg: &colors::Color, bg: &colors::Color) {
+    // if *fg == colors::DEFAULT {
+    //     print!("%f");
+    // } else {
+    //     print!("%F{{{}}}", fg.name);
+    // }
+    // if *bg == colors::DEFAULT {
+    //     print!("%k");
+    // } else {
+    //     print!("%K{{{}}}", bg.name);
+    // }
     print!("\x1b[{}m\x1b[{}m", fg.fg, bg.bg);
 }
 
+fn reset_stdout_color() {
+    // print!("%{{%f%k%}}");
+    print!("\x1b[0m");
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Shell {
+    Zsh,
+    Bash,
+    Fish,
+}
+
+/// Terminal prompt in rust
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Echo init script for given shell
+    #[arg(long, value_enum, value_name = "SHELL")]
+    init: Option<Shell>,
+
+    /// Status or pipestatus from the last run process
+    #[arg(short, long, value_name = "PIPESTATUS")]
+    status: Option<String>,
+
+    /// The width of the terminal window, in characters
+    #[arg(short, long, value_name = "COLS")]
+    columns: Option<usize>,
+}
+
 fn main() {
+    let args = Args::parse();
+
+    if let Some(shell) = args.init {
+        echo_init_script(shell);
+        return;
+    }
+
+    // print!("{} ", args.columns.unwrap_or(0));
+    // set_stdout_color(&colors::DEFAULT, &colors::BLUE);
+    // print!(">>>>>>>>>>>");
+    // println!("%{{%b%f%}}");
+    // println!("> ");
+    // return;
+
     let context = Context {
         path: std::env::current_dir().ok(),
+        pipestatus: args.status,
     };
 
     let segments: Vec<Box<dyn PromptSegment>> = vec![
+        StatusSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
         PathSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
         GitSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
     ]
@@ -116,17 +173,16 @@ fn main() {
     .filter_map(|x| x.take())
     .collect();
 
-    let term_width = terminal_size::terminal_size()
-        .map(|(w, _)| w)
-        .unwrap_or(Width(u16::MAX))
-        .0 as usize;
-
-    let (line_type, layout) = layout_segments(&segments, term_width, MIN_WHITESPACE);
+    let (line_type, layout) = layout_segments(
+        &segments,
+        args.columns.map(|x| x - 3).unwrap_or(usize::MAX),
+        MIN_WHITESPACE,
+    );
 
     if line_type == Line::OverflowLine {
         set_stdout_color(&colors::DEFAULT, &colors::BLUE);
         print!("{}", SEGMENT_SEPARATOR);
-        set_stdout_color(&colors::DEFAULT, &colors::DEFAULT);
+        reset_stdout_color();
         return;
     }
 
@@ -145,6 +201,7 @@ fn main() {
         print!("{}", SEGMENT_SEPARATOR);
     }
 
+    reset_stdout_color();
     match line_type {
         Line::SingleLine => {
             print!(" ");
@@ -155,10 +212,10 @@ fn main() {
             print!(" ↳ ");
             set_stdout_color(&colors::BLUE, &colors::DEFAULT);
             print!("{}", SEGMENT_SEPARATOR);
+            reset_stdout_color();
             print!(" ");
         }
     }
-    set_stdout_color(&colors::DEFAULT, &colors::DEFAULT);
 
     let _ = io::stdout().flush();
 }

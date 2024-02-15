@@ -1,9 +1,10 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Color {
     pub fg: u8,
     pub bg: u8,
     pub fgb: u8,
     pub bgb: u8,
+    pub name: &'static str,
 }
 
 #[allow(unused)]
@@ -12,6 +13,7 @@ pub const BLACK: Color = Color {
     bg: 40,
     fgb: 90,
     bgb: 100,
+    name: "black",
 };
 #[allow(unused)]
 pub const RED: Color = Color {
@@ -19,6 +21,7 @@ pub const RED: Color = Color {
     bg: 41,
     fgb: 91,
     bgb: 101,
+    name: "red",
 };
 #[allow(unused)]
 pub const GREEN: Color = Color {
@@ -26,6 +29,7 @@ pub const GREEN: Color = Color {
     bg: 42,
     fgb: 92,
     bgb: 102,
+    name: "green",
 };
 #[allow(unused)]
 pub const YELLOW: Color = Color {
@@ -33,6 +37,7 @@ pub const YELLOW: Color = Color {
     bg: 43,
     fgb: 93,
     bgb: 103,
+    name: "yellow",
 };
 #[allow(unused)]
 pub const BLUE: Color = Color {
@@ -40,6 +45,7 @@ pub const BLUE: Color = Color {
     bg: 44,
     fgb: 94,
     bgb: 104,
+    name: "blue",
 };
 #[allow(unused)]
 pub const MAGENTA: Color = Color {
@@ -47,6 +53,7 @@ pub const MAGENTA: Color = Color {
     bg: 45,
     fgb: 95,
     bgb: 105,
+    name: "magenta",
 };
 #[allow(unused)]
 pub const CYAN: Color = Color {
@@ -54,6 +61,7 @@ pub const CYAN: Color = Color {
     bg: 46,
     fgb: 96,
     bgb: 106,
+    name: "cyan",
 };
 #[allow(unused)]
 pub const WHITE: Color = Color {
@@ -61,6 +69,7 @@ pub const WHITE: Color = Color {
     bg: 47,
     fgb: 97,
     bgb: 107,
+    name: "white",
 };
 #[allow(unused)]
 pub const DEFAULT: Color = Color {
@@ -68,4 +77,5 @@ pub const DEFAULT: Color = Color {
     bg: 49,
     fgb: 99,
     bgb: 109,
+    name: "",
 };

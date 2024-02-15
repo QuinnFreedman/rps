@@ -4,26 +4,8 @@ use crate::colors;
 
 pub struct Context {
     pub path: Option<PathBuf>,
+    pub pipestatus: Option<String>,
 }
-
-// pub enum Side {
-//     Left,
-//     Right,
-// }
-
-// pub struct ShrinkStrategy {
-//     pub min_width: usize,
-//     pub shrink_from: Side,
-// }
-
-// pub struct Segment {
-//     pub text: String,
-//     pub bg_color: colors::Color,
-//     pub fg_color: colors::Color,
-//     pub shrink: Option<ShrinkStrategy>,
-// }
-
-// pub type SegmentBuilder = fn(&Context) -> Option<Segment>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ShrinkPriority {

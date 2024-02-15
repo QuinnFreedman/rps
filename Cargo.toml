@@ -1,15 +1,18 @@
 [package]
-name = "ps-rs"
+name = "rps"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+proc-macro2 = "1.0.43"
+clap = { version = "4.3.1", features = ["derive"] }
+const_format = "0.2.31"
 git2 = { version = "0.17.2", default-features = false }
 terminal_size = "0.2.6"
 unicode-segmentation = "1.10.1"
 
 [[bin]]
-name = "ps-rs"
+name = "rps"
 test = false
 bench = false
 path = "src/main.rs"

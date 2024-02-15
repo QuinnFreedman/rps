@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp::min, path::PathBuf};
+use std::{borrow::Cow, path::PathBuf};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
@@ -57,6 +57,10 @@ impl PathSegment {
     pub fn new(context: &Context) -> Option<Self> {
         let (path_type, path_buf) = get_path_relative_to_home(context.path.as_ref()?);
 
+        Some(Self::new_from_path(path_type, path_buf))
+    }
+
+    fn new_from_path(path_type: PathType, path_buf: Cow<PathBuf>) -> Self {
         let components: Vec<String> = path_buf
             .iter()
             .map(|x| x.to_string_lossy().into_owned())
@@ -64,11 +68,11 @@ impl PathSegment {
 
         let preferred_width = calculate_preferred_size(&components);
 
-        Some(PathSegment {
+        PathSegment {
             path_segments: components,
             path_type,
             preferred_width,
-        })
+        }
     }
 }
 
@@ -82,8 +86,10 @@ impl PromptSegment for PathSegment {
     }
 
     fn get_actual_width_when_under(&self, max_size: usize) -> usize {
-        if max_size >= MIN_PATH_SIZE {
-            min(max_size, self.preferred_width)
+        if max_size >= self.preferred_width {
+            self.preferred_width
+        } else if max_size >= MIN_PATH_SIZE {
+            max_size
         } else {
             1
         }
@@ -98,8 +104,12 @@ impl PromptSegment for PathSegment {
         };
 
         let text = if max_size >= self.preferred_width {
-            let full_text = self.path_segments.join(separator.as_str());
-            format!(" {}{}{} ", prefix_char, separator, full_text)
+            if self.path_segments.is_empty() {
+                format!(" {} ", prefix_char)
+            } else {
+                let full_text = self.path_segments.join(separator.as_str());
+                format!(" {}{}{} ", prefix_char, separator, full_text)
+            }
         } else if max_size > MIN_PATH_SIZE {
             let mut string_builder: Vec<&str> = vec![" "];
             let mut current_size = 1;
@@ -135,7 +145,7 @@ impl PromptSegment for PathSegment {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{borrow::Cow, path::PathBuf};
 
     use crate::{
         path::{calculate_preferred_size, get_relative_path, PathType, PATH_SEPARATOR},
@@ -181,42 +191,71 @@ mod tests {
     }
 
     #[test]
+    fn preferred_width_path() {
+        let home = PathBuf::from("/home/me");
+        let cwd = PathBuf::from("/home/me/abc/de");
+        let (path_type, path_buf) = get_relative_path(cwd, home);
+        let segment = PathSegment::new_from_path(path_type, Cow::Owned(path_buf));
+        assert_eq!(segment.preferred_width, " ~ > abc > de ".len());
+    }
+
+    #[test]
+    fn preferred_width_home() {
+        let home = PathBuf::from("/home/me");
+        let cwd = PathBuf::from("/home/me/");
+        let (path_type, path_buf) = get_relative_path(cwd, home);
+        let segment = PathSegment::new_from_path(path_type, Cow::Owned(path_buf));
+        assert_eq!(segment.preferred_width, " ~ ".len());
+    }
+
+    #[test]
+    fn render_home() {
+        let segment =
+            PathSegment::new_from_path(PathType::RelativeToHome, Cow::Owned(PathBuf::new()));
+        let rendered = segment.render_at_size(segment.preferred_width);
+        assert_eq!(rendered.text, " ~ ");
+    }
+
+    #[test]
     fn render_single() {
-        let segment = PathSegment {
-            path_segments: vec!["1234567890".to_string()],
-            path_type: PathType::RelativeToHome,
-            preferred_width: 16,
-        };
-        let rendered = segment.render_at_size(10);
-        assert_eq!(rendered.text, " ...67890 ");
+        let segment = PathSegment::new_from_path(
+            PathType::RelativeToHome,
+            Cow::Owned(PathBuf::from("1234567890")),
+        );
+        let full_size = segment.render_at_size(segment.preferred_width);
+        assert_eq!(full_size.text, format!(" ~ {} 1234567890 ", PATH_SEPARATOR));
+        let constrained = segment.render_at_size(10);
+        assert_eq!(constrained.text, " ...67890 ");
     }
 
     #[test]
     fn render_multiple() {
-        let parts = vec!["1234567890".to_string(), "1234".to_string()];
-        let preferred_width = calculate_preferred_size(&parts);
-        let segment = PathSegment {
-            path_segments: parts,
-            path_type: PathType::RelativeToHome,
-            preferred_width,
-        };
-        let rendered = segment.render_at_size(16);
-        assert_eq!(rendered.text, format!(" ...7890 {} 1234 ", PATH_SEPARATOR));
+        let segment = PathSegment::new_from_path(
+            PathType::RelativeToHome,
+            Cow::Owned(PathBuf::from("1234567890/1234")),
+        );
+        let full_size = segment.render_at_size(segment.preferred_width);
+        assert_eq!(
+            full_size.text,
+            format!(" ~ {0} 1234567890 {0} 1234 ", PATH_SEPARATOR)
+        );
+        let constrained = segment.render_at_size(16);
+        assert_eq!(
+            constrained.text,
+            format!(" ...7890 {} 1234 ", PATH_SEPARATOR)
+        );
     }
 
     #[test]
-    fn render_unconstrained() {
-        let parts = vec!["1234567890".to_string(), "1234".to_string()];
-        let preferred_width = calculate_preferred_size(&parts);
-        let segment = PathSegment {
-            path_segments: parts,
-            path_type: PathType::RelativeToHome,
-            preferred_width,
-        };
-        let rendered = segment.render_at_size(99);
+    fn render_absolute() {
+        let segment = PathSegment::new_from_path(
+            PathType::RelativeToRoot,
+            Cow::Owned(PathBuf::from("1234567890/1234")),
+        );
+        let full_size = segment.render_at_size(segment.preferred_width);
         assert_eq!(
-            rendered.text,
-            format!(" ~ {0} 1234567890 {0} 1234 ", PATH_SEPARATOR)
+            full_size.text,
+            format!(" / {0} 1234567890 {0} 1234 ", PATH_SEPARATOR)
         );
     }
 }
