@@ -7,7 +7,7 @@ use crate::{
 };
 
 const PATH_SEPARATOR: char = '\u{E0B1}';
-const MIN_PATH_SIZE: usize = 5;
+const MIN_PATH_SIZE: usize = 6;
 
 #[derive(Debug, PartialEq)]
 enum PathType {
@@ -110,7 +110,7 @@ impl PromptSegment for PathSegment {
                 let full_text = self.path_segments.join(separator.as_str());
                 format!(" {}{}{} ", prefix_char, separator, full_text)
             }
-        } else if max_size > MIN_PATH_SIZE {
+        } else if max_size >= MIN_PATH_SIZE {
             let mut string_builder: Vec<&str> = vec![" "];
             let mut current_size = 1;
             'outer: for segment in self.path_segments.iter().rev() {
@@ -148,7 +148,7 @@ mod tests {
     use std::{borrow::Cow, path::PathBuf};
 
     use crate::{
-        path::{get_relative_path, PathType, PATH_SEPARATOR},
+        path::{get_relative_path, PathType, MIN_PATH_SIZE, PATH_SEPARATOR},
         segments::PromptSegment,
     };
 
@@ -257,5 +257,17 @@ mod tests {
             full_size.text,
             format!(" / {0} 1234567890 {0} 1234 ", PATH_SEPARATOR)
         );
+    }
+
+    #[test]
+    fn render_smallest() {
+        let segment = PathSegment::new_from_path(
+            PathType::RelativeToRoot,
+            Cow::Owned(PathBuf::from("1234567890/1234")),
+        );
+        let allowed = segment.render_at_size(MIN_PATH_SIZE);
+        assert_eq!(allowed.text, " ...4 ");
+        let smallest = segment.render_at_size(MIN_PATH_SIZE - 1);
+        assert_eq!(smallest.text, " ");
     }
 }
