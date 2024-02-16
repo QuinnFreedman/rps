@@ -148,7 +148,7 @@ mod tests {
     use std::{borrow::Cow, path::PathBuf};
 
     use crate::{
-        path::{calculate_preferred_size, get_relative_path, PathType, PATH_SEPARATOR},
+        path::{get_relative_path, PathType, PATH_SEPARATOR},
         segments::PromptSegment,
     };
 

@@ -102,6 +102,7 @@ mod tests {
         let context = Context {
             path: None,
             pipestatus: Some(String::from("0 127 0")),
+            jobs: 0,
         };
         let segment = StatusSegment::new(&context).unwrap();
         assert_eq!(segment.status.len(), 3);

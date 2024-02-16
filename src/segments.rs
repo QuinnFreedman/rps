@@ -5,6 +5,7 @@ use crate::colors;
 pub struct Context {
     pub path: Option<PathBuf>,
     pub pipestatus: Option<String>,
+    pub jobs: usize,
 }
 
 #[derive(Clone, Copy, Debug)]

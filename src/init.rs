@@ -11,7 +11,7 @@ fn init_script_zsh(exe_path: String) -> String {
     format!(
         "\
             unsetopt promptsubst\n\
-            precmd() {{ PS1=$({} --columns=\"$COLUMNS\" --status=\"$pipestatus\") }}\n\
+            precmd() {{ PS1=$({} --columns=\"$COLUMNS\" --status=\"$pipestatus\" --jobs=\"$(jobs -l | wc -l)\") }}\n\
         ",
         exe_path
     )
@@ -21,7 +21,7 @@ fn init_script_fish(exe_path: String) -> String {
     format!(
         "\
             function fish_prompt\n\
-                {} --columns=\"$COLUMNS\" --status=\"$pipestatus\"\n\
+                {} --columns=\"$COLUMNS\" --status=\"$pipestatus\" --jobs=(jobs | wc -l)\n\
             end\n\
         ",
         exe_path
@@ -30,7 +30,7 @@ fn init_script_fish(exe_path: String) -> String {
 
 fn init_script_bash(exe_path: String) -> String {
     format!(
-        "PROMPT_COMMAND=\"PS1=\\$({} --columns=\\\"$COLUMNS\\\" --status=\\\"${{pipestatus:-0}}\\\")\"",
+        "PROMPT_COMMAND=\"PS1=\\$({} --columns=\\\"$COLUMNS\\\" --status=\\\"${{pipestatus:-0}}\\\" --jobs=${{jobs -l | wc -l}})\"",
         exe_path
     )
 }

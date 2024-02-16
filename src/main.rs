@@ -3,6 +3,7 @@
 mod colors;
 mod git;
 mod init;
+mod jobs;
 mod path;
 mod segments;
 mod status;
@@ -15,6 +16,7 @@ use std::{
 use clap::{Parser, ValueEnum};
 use git::GitSegment;
 use init::echo_init_script;
+use jobs::JobsSegment;
 use path::PathSegment;
 use segments::*;
 use status::StatusSegment;
@@ -142,6 +144,10 @@ struct Args {
     /// The width of the terminal window, in characters
     #[arg(short, long, value_name = "COLS")]
     columns: Option<usize>,
+
+    /// The number of background jobs, from jobs -l | wc -l
+    #[arg(short, long, value_name = "JOBS")]
+    jobs: Option<usize>,
 }
 
 fn main() {
@@ -162,10 +168,12 @@ fn main() {
     let context = Context {
         path: std::env::current_dir().ok(),
         pipestatus: args.status,
+        jobs: args.jobs.unwrap_or(0),
     };
 
     let segments: Vec<Box<dyn PromptSegment>> = vec![
         StatusSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
+        JobsSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
         PathSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
         GitSegment::new(&context).map(|x| Box::new(x) as Box<dyn PromptSegment>),
     ]
