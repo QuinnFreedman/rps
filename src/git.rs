@@ -1,21 +1,24 @@
 use std::cmp::min;
 
 use crate::{colors, segments::*};
-use git2::Repository;
+use git2::{Repository, RepositoryOpenFlags};
 use unicode_segmentation::UnicodeSegmentation;
 
+#[derive(Debug)]
 struct FileChanges {
     staged: bool,
     unstaged: bool,
     conflicted: bool,
 }
 
+#[derive(Debug)]
 enum GitStatus {
     Clean,
     UntrackedFiles,
     Changes(FileChanges),
 }
 
+#[derive(Debug)]
 enum GitState {
     Clean,
     Bisect,
@@ -49,7 +52,13 @@ fn get_branch_name(repo: &Repository) -> Option<String> {
 
 impl GitSegment {
     pub fn new(context: &Context) -> Option<Self> {
-        let repo = Repository::open(context.path.as_ref()?).ok()?;
+        let path = context.path.as_ref()?;
+        let repo = Repository::open_ext(
+            path,
+            RepositoryOpenFlags::empty(),
+            &[] as &[&std::ffi::OsStr],
+        )
+        .ok()?;
         let statuses = repo.statuses(None).ok()?;
         let status = get_repo_status(&statuses);
         let mode = get_repo_mode(&repo);
