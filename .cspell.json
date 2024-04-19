@@ -1,0 +1,10 @@
+{
+  "words": [
+        "unsetopt",
+        "promptsubst",
+        "precmd",
+        "pipestatus",
+        "formatcp",
+        "visualstudio"
+    ],
+}

@@ -72,7 +72,7 @@ fn layout_segments(
     }
 
     for shrink_priority in [
-        ShrinkPriority::ShrinkConfortable,
+        ShrinkPriority::ShrinkComfortable,
         ShrinkPriority::ShrinkBeyondMin,
     ] {
         while prompt_width > term_width {
@@ -244,7 +244,7 @@ mod tests {
         fn get_base_width(&self, shrink: crate::segments::ShrinkPriority) -> usize {
             match shrink {
                 ShrinkPriority::Unconstrained => self.width,
-                ShrinkPriority::ShrinkConfortable => MIN_TEST_SEGMENT_SIZE,
+                ShrinkPriority::ShrinkComfortable => MIN_TEST_SEGMENT_SIZE,
                 ShrinkPriority::ShrinkBeyondMin => 1,
             }
         }

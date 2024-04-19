@@ -11,7 +11,7 @@ pub struct Context {
 #[derive(Clone, Copy, Debug)]
 pub enum ShrinkPriority {
     Unconstrained,
-    ShrinkConfortable,
+    ShrinkComfortable,
     ShrinkBeyondMin,
 }
 

@@ -80,7 +80,7 @@ impl PromptSegment for PathSegment {
     fn get_base_width(&self, shrink: ShrinkPriority) -> usize {
         match shrink {
             ShrinkPriority::Unconstrained => self.preferred_width,
-            ShrinkPriority::ShrinkConfortable => MIN_PATH_SIZE,
+            ShrinkPriority::ShrinkComfortable => MIN_PATH_SIZE,
             ShrinkPriority::ShrinkBeyondMin => 1,
         }
     }

@@ -2,8 +2,8 @@ use crate::Shell;
 
 fn get_exe_path() -> Option<String> {
     let path = std::env::current_exe().ok()?;
-    let cannonical = std::fs::canonicalize(path).ok()?;
-    let string = cannonical.into_os_string().into_string().ok()?;
+    let canonical = std::fs::canonicalize(path).ok()?;
+    let string = canonical.into_os_string().into_string().ok()?;
     Some(string)
 }
 

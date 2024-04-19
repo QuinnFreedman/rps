@@ -219,7 +219,7 @@ impl PromptSegment for GitSegment {
     fn get_base_width(&self, shrink: ShrinkPriority) -> usize {
         match shrink {
             ShrinkPriority::Unconstrained => self.get_unconstrained_total_len(),
-            ShrinkPriority::ShrinkConfortable => self.get_min_len_with_branch_name(),
+            ShrinkPriority::ShrinkComfortable => self.get_min_len_with_branch_name(),
             ShrinkPriority::ShrinkBeyondMin => 0,
         }
     }
@@ -319,7 +319,7 @@ mod tests {
         };
         assert_eq!(segment.get_base_width(ShrinkPriority::Unconstrained), 17);
         assert_eq!(
-            segment.get_base_width(ShrinkPriority::ShrinkConfortable),
+            segment.get_base_width(ShrinkPriority::ShrinkComfortable),
             14
         );
         assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);
@@ -349,7 +349,7 @@ mod tests {
         };
         assert_eq!(segment.get_base_width(ShrinkPriority::Unconstrained), 14);
         assert_eq!(
-            segment.get_base_width(ShrinkPriority::ShrinkConfortable),
+            segment.get_base_width(ShrinkPriority::ShrinkComfortable),
             11
         );
         assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);
@@ -378,7 +378,7 @@ mod tests {
         };
         assert_eq!(segment.get_base_width(ShrinkPriority::Unconstrained), 21);
         assert_eq!(
-            segment.get_base_width(ShrinkPriority::ShrinkConfortable),
+            segment.get_base_width(ShrinkPriority::ShrinkComfortable),
             18
         );
         assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);
@@ -414,7 +414,7 @@ mod tests {
         };
         assert_eq!(segment.get_base_width(ShrinkPriority::Unconstrained), 18);
         assert_eq!(
-            segment.get_base_width(ShrinkPriority::ShrinkConfortable),
+            segment.get_base_width(ShrinkPriority::ShrinkComfortable),
             15
         );
         assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkBeyondMin), 0);

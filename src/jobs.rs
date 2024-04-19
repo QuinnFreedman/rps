@@ -28,7 +28,7 @@ impl PromptSegment for JobsSegment {
                 1 => 3,
                 _ => self.get_unconstrained_size(),
             },
-            ShrinkPriority::ShrinkConfortable => 3,
+            ShrinkPriority::ShrinkComfortable => 3,
             ShrinkPriority::ShrinkBeyondMin => 0,
         }
     }
@@ -102,7 +102,7 @@ mod tests {
             jobs: 3,
         };
         let segment = JobsSegment::new(&context).unwrap();
-        assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkConfortable), 3);
+        assert_eq!(segment.get_base_width(ShrinkPriority::ShrinkComfortable), 3);
         assert_eq!(segment.render_at_size(3).text, " ⚙ ");
     }
 }

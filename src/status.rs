@@ -55,7 +55,7 @@ impl PromptSegment for StatusSegment {
     fn get_base_width(&self, shrink: crate::segments::ShrinkPriority) -> usize {
         match shrink {
             ShrinkPriority::Unconstrained => self.get_unconstrained_size(),
-            ShrinkPriority::ShrinkConfortable => 3,
+            ShrinkPriority::ShrinkComfortable => 3,
             ShrinkPriority::ShrinkBeyondMin => 0,
         }
     }
