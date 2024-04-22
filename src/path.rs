@@ -13,6 +13,7 @@ const MIN_PATH_SIZE: usize = 6;
 enum PathType {
     RelativeToHome,
     RelativeToRoot,
+    Nonexistent,
 }
 
 fn get_relative_path(cwd: impl Into<PathBuf>, home: impl Into<PathBuf>) -> (PathType, PathBuf) {
@@ -55,7 +56,10 @@ fn calculate_preferred_size(components: &Vec<String>) -> usize {
 
 impl PathSegment {
     pub fn new(context: &Context) -> Option<Self> {
-        let (path_type, path_buf) = get_path_relative_to_home(context.path.as_ref()?);
+        let (path_type, path_buf) = match context.path.as_ref() {
+            Some(path) => get_path_relative_to_home(path),
+            None => (PathType::Nonexistent, Cow::Owned(PathBuf::new())),
+        };
 
         Some(Self::new_from_path(path_type, path_buf))
     }
@@ -78,6 +82,10 @@ impl PathSegment {
 
 impl PromptSegment for PathSegment {
     fn get_base_width(&self, shrink: ShrinkPriority) -> usize {
+        if self.path_type == PathType::Nonexistent {
+            return 3;
+        }
+
         match shrink {
             ShrinkPriority::Unconstrained => self.preferred_width,
             ShrinkPriority::ShrinkComfortable => MIN_PATH_SIZE,
@@ -86,7 +94,9 @@ impl PromptSegment for PathSegment {
     }
 
     fn get_actual_width_when_under(&self, max_size: usize) -> usize {
-        if max_size >= self.preferred_width {
+        if self.path_type == PathType::Nonexistent {
+            3
+        } else if max_size >= self.preferred_width {
             self.preferred_width
         } else if max_size >= MIN_PATH_SIZE {
             max_size
@@ -96,11 +106,20 @@ impl PromptSegment for PathSegment {
     }
 
     fn render_at_size(&self, max_size: usize) -> RenderedSegment {
+        if self.path_type == PathType::Nonexistent {
+            return RenderedSegment {
+                text: String::from(" \u{2718} "),
+                bg_color: colors::BLUE,
+                fg_color: colors::BLACK,
+            };
+        }
+
         let separator = format!(" {} ", PATH_SEPARATOR);
 
         let prefix_char = match self.path_type {
             PathType::RelativeToHome => '~',
             PathType::RelativeToRoot => '/',
+            PathType::Nonexistent => unreachable!(),
         };
 
         let text = if max_size >= self.preferred_width {
@@ -269,5 +288,12 @@ mod tests {
         assert_eq!(allowed.text, " ...4 ");
         let smallest = segment.render_at_size(MIN_PATH_SIZE - 1);
         assert_eq!(smallest.text, " ");
+    }
+
+    #[test]
+    fn missing_path() {
+        let segment = PathSegment::new_from_path(PathType::Nonexistent, Cow::Owned(PathBuf::new()));
+        let rendered = segment.render_at_size(segment.preferred_width);
+        assert_eq!(rendered.text, " ✘ ");
     }
 }
